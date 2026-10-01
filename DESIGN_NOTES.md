@@ -40,7 +40,7 @@ and the defaults chosen where CLAUDE.md is silent.
 
 ### 1.5 Alternate locations in the dropdown
 - **Response:** Show alternate locations, with occupancy in brackets.
-- **Decision:** Atom dropdown label format: `CA  altloc B (occ 0.40)  [1-245]`. Atoms without an altloc show only `CA  [1-245]`.
+- **Decision:** Atom list label format: `CA altloc B (occ 0.40) [245]`. Atoms without an altloc show only `CA [245]`. The bracket holds the atom id from the file, as CLAUDE.md asks; the full `matomid` is shown in the selection table.
 
 ### 1.6 Pairs and matrices output
 - **Response:** Separate files are fine.
@@ -103,12 +103,41 @@ Biopython's `PDBIO` and `MMCIFIO` rebuild files from the structure object. That 
 
 Both approaches use only Biopython and the standard library. Implemented as proposed; PDB `ANISOU` and mmCIF `_atom_site_anisotrop` tensors are also rotated (R U Rᵀ).
 
+**Superseded on 2026-10-01 (see 4.2):** header records are now removed, so fitted files hold coordinates only.
+
 ### 3.4 Defaults assumed unless you say otherwise
 - Checksum: **SHA-256** of the input file bytes (of the downloaded file for PDB IDs).
-- CSV column header for a PDB ID input: `<pdbid>.cif`. If two inputs share a file name, the duplicates get `_2`, `_3` and so on, both in the headers and in the output file names.
+- CSV column header for a PDB ID input: `<pdbid>.cif`. If two inputs share a file name, the duplicates get `_1`, `_2` and so on (`model.pdb`, `model_1.pdb`, ...), both in the headers and in the output file names.
 - Hetero listing in Stage 3 reports waters (HOH) separately from other hetero residues, so ligands aren't buried under hundreds of waters.
 - The reference structure is never moved or rewritten, only listed in the report.
 
 ### 3.5 Minor issues in `kearsley_numbajit` (not blocking)
 - `scipy` is listed as a dependency but never imported.
 - `centroid()` would crash if called (`.append` on an ndarray). It is unused.
+
+---
+
+## 4. Decisions from the review of 2026-10-01
+
+### 4.1 RMSDc is kept
+- **Comment:** With RMSDc >= SOdc (both 1.5 A by default) the RMSD test can never fail on its own, because every pair distance is already below SOdc.
+- **Response:** RMSDc is useful when set low and is a standard cutoff in the field.
+- **Decision:** Keep both cutoffs unchanged; the redundancy at the defaults is documented in `K_fit/DEVELOPMENT.md`.
+
+### 4.2 Fitted files hold coordinates only
+- **Comment:** Crystal cell, symmetry operators and assembly records no longer match the moved coordinates.
+- **Response:** Strip such information; keep only coordinate lines and strictly necessary information.
+- **Decision:** PDB output keeps `MODEL`, `ATOM`, `HETATM`, `ANISOU`, `TER`, `ENDMDL`, `END`. mmCIF output keeps the block name, `_entry.id`, `_atom_site` and `_atom_site_anisotrop`. `CONECT` and `_struct_conn` are removed too.
+
+### 4.3 Output folder
+- **Response:** Clean the output folder every time the input stage is run.
+- **Decision:** The notebook empties its output folder on every Load (Stage 2) and also before every run, so a run never leaves files of an earlier run.
+
+### 4.4 Fixes
+- Fewer than 3 pairs, or atoms on one straight line, are errors (were: a warning, or not checked).
+- With "fit all models", NO FIT models are left out of the fitted file, so all its models share one frame; the report lists them.
+- Targets with the same stem (`x.pdb`, `x.cif`) get separate output files (`x_pdb_*`, `x_cif_*`).
+- The mmCIF writer reads the input text held in memory, not the file on disk.
+- All engine errors derive from `KFitError`; the notebook prints them as one-line errors.
+- A pairs CSV with an error no longer leaves copies or selections half applied.
+- `ipywidgets.FileUpload` is confirmed working in Colab.
